@@ -1,20 +1,19 @@
 import streamlit as st
-from openai import OpenAI
-from dotenv import load_dotenv
-import json
+import openai
 import os
+import json
 
-# Load environment variables
-load_dotenv()
+# Configure OpenRouter API - using streamlit secrets for deployment
+try:
+    # Try to get API key from Streamlit secrets first (for deployment)
+    api_key = st.secrets["OPENROUTER_API_KEY"]
+except:
+    # Fall back to environment variable (for local development)
+    api_key = os.getenv("OPENROUTER_API_KEY")
 
-# Configure OpenRouter API
-# TODO: The 'openai.api_base' option isn't read in the client API. You will need to pass it when you instantiate the client, e.g. 'OpenAI(base_url="https://openrouter.ai/api/v1")'
-# openai.api_base = "https://openrouter.ai/api/v1"
-
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=os.getenv("OPENROUTER_API_KEY")
-)
+# Configure OpenAI client for older version (0.28.1)
+openai.api_key = api_key
+openai.api_base = "https://openrouter.ai/api/v1"
 
 # App configuration
 st.set_page_config(
@@ -80,10 +79,10 @@ def get_team_assignment(sectors):
     """Determine team assignment based on education sectors"""
     if not sectors:
         return "To be assigned"
-
+    
     # Convert to set for easier matching
     sector_set = set(sectors)
-
+    
     # Check for combinations
     if {"K-12", "Higher Education"}.issubset(sector_set):
         return "Mitch"
@@ -104,19 +103,21 @@ def analyze_company(company_name, company_description, model):
             company_name=company_name,
             company_description=company_description or "No description provided"
         )
-
-        # Make API call
-        response = client.chat.completions.create(model=model,
-        messages=[
-            {"role": "system", "content": "You are an expert education sector analyst. Always respond with valid JSON."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=500,
-        temperature=0.3)
-
+        
+        # Make API call using older OpenAI library syntax
+        response = openai.ChatCompletion.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "You are an expert education sector analyst. Always respond with valid JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=500,
+            temperature=0.3
+        )
+        
         # Parse response
         content = response.choices[0].message.content
-
+        
         # Try to extract JSON from response
         try:
             # Find JSON in response
@@ -134,7 +135,7 @@ def analyze_company(company_name, company_description, model):
                 "reasoning": content,
                 "confidence": "Low"
             }
-
+            
     except Exception as e:
         st.error(f"Error analyzing company: {str(e)}")
         return None
@@ -144,7 +145,7 @@ col1, col2 = st.columns([2, 1])
 
 with col1:
     st.header("Company Information")
-
+    
     # Input fields
     company_name = st.text_input("Company Name", placeholder="e.g., Khan Academy")
     company_description = st.text_area(
@@ -152,39 +153,39 @@ with col1:
         placeholder="Brief description of what the company does...",
         height=100
     )
-
+    
     # Analysis button
     if st.button("🔍 Analyze Company", type="primary"):
         if company_name:
             with st.spinner("Analyzing company..."):
                 analysis = analyze_company(company_name, company_description, selected_model)
-
+                
                 if analysis:
                     # Store in session state
                     st.session_state.last_analysis = analysis
-
+                    
                     # Display results
                     st.success("Analysis complete!")
-
+                    
                     # Results section
                     st.header("📊 Analysis Results")
-
+                    
                     col_result1, col_result2 = st.columns(2)
-
+                    
                     with col_result1:
                         st.subheader("Education Sectors")
                         if analysis.get('primary_sectors'):
                             st.write("**Primary:**", ", ".join(analysis['primary_sectors']))
                         if analysis.get('secondary_sectors'):
                             st.write("**Secondary:**", ", ".join(analysis['secondary_sectors']))
-
+                    
                     with col_result2:
                         st.subheader("Team Assignment")
                         all_sectors = analysis.get('primary_sectors', []) + analysis.get('secondary_sectors', [])
                         assigned_member = get_team_assignment(all_sectors)
                         st.write(f"**Assigned to:** {assigned_member}")
                         st.write(f"**Confidence:** {analysis.get('confidence', 'Medium')}")
-
+                    
                     # Reasoning
                     st.subheader("Analysis Reasoning")
                     st.write(analysis.get('reasoning', 'No reasoning provided'))
@@ -194,7 +195,7 @@ with col1:
 with col2:
     st.header("Team Assignments")
     st.write("**Current assignment rules:**")
-
+    
     for sectors, member in TEAM_ASSIGNMENTS.items():
         st.write(f"• {sectors} → {member}")
 
@@ -235,8 +236,15 @@ st.sidebar.write("""
 
 st.sidebar.header("API Setup")
 st.sidebar.write("""
-Make sure you have your OpenRouter API key in a `.env` file:
+**For local development:**
+Create a `.env` file with:
 ```
 OPENROUTER_API_KEY=your_key_here
+```
+
+**For Streamlit Cloud deployment:**
+Add your API key in the Streamlit secrets section as:
+```
+OPENROUTER_API_KEY = "your_key_here"
 ```
 """)
