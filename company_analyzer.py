@@ -4,12 +4,12 @@ import os
 import json
 
 # Configure OpenRouter API - using streamlit secrets for deployment
-try:
-    # Try to get API key from Streamlit secrets first (for deployment)
-    api_key = st.secrets["OPENROUTER_API_KEY"]
-except:
+# try:
+#     # Try to get API key from Streamlit secrets first (for deployment)
+#     api_key = st.secrets["OPENROUTER_API_KEY"]
+# except:
     # Fall back to environment variable (for local development)
-    api_key = os.getenv("OPENROUTER_API_KEY")
+api_key = os.getenv("OPENROUTER_API_KEY")
 
 # Configure OpenAI client for older version (0.28.1)
 openai.api_key = api_key
