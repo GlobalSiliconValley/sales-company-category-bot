@@ -29,6 +29,7 @@ st.write("Analyze companies and assign team members based on education sector")
 # Sidebar for model selection
 st.sidebar.header("Settings")
 model_options = [
+    "openai/gpt-4o",
     "meta-llama/llama-3.2-3b-instruct:free",
     "microsoft/phi-3-mini-128k-instruct:free",
     "google/gemma-2-9b-it:free",
